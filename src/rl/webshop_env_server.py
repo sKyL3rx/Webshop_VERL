@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from uuid import uuid4
 
 from flask import Flask, jsonify, request
-from webshop.baseline_models.env import WebEnv
+from WebShop.baseline_models.env import WebEnv
 
 CLICK_ACTION_RE = re.compile(r"^click\[(.+)\]$", re.I)
 SEARCH_ACTION_RE = re.compile(r"^search\[(.*)\]$", re.I)
