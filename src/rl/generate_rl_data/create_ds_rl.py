@@ -42,6 +42,7 @@ def build_dataset_split(start_idx: int, end_idx: int, base_url: str) -> pd.DataF
             "data_source": "webshop",
             "prompt": [{"role": "user", "content": instruction}],
             "ability": "web-navigation",
+            "goal_idx": goal_idx,
             "reward_model": {
                 "style": "rule",
                 "ground_truth": {"target": str(gid)}
