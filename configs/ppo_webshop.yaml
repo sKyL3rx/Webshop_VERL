@@ -1,0 +1,132 @@
+data:
+  train_files: /workspace/data/webshop_train.parquet
+  val_files: /workspace/data/webshop_val.parquet
+
+  # AgentLoop cần raw chat
+  return_raw_chat: true
+
+  # Bảo thủ cho 2x16GB
+  train_batch_size: 32
+  max_prompt_length: 1024
+  max_response_length: 512
+  filter_overlong_prompts: true
+  truncation: error
+
+actor_rollout_ref:
+  hybrid_engine: true
+
+  model:
+    path: /workspace/models/Qwen2.5-0.5B-Instruct
+    trust_remote_code: false
+    use_remove_padding: true
+    enable_gradient_checkpointing: true
+
+  actor:
+    strategy: fsdp
+    ppo_mini_batch_size: 64
+    ppo_micro_batch_size_per_gpu: 1
+    use_dynamic_bsz: true
+    ppo_max_token_len_per_gpu: 3072
+
+    grad_clip: 1.0
+    clip_ratio: 0.2
+    entropy_coeff: 0.0
+    ppo_epochs: 1
+
+    # GRPO khuyên dùng
+    loss_agg_mode: token-mean
+    use_kl_loss: true
+    kl_loss_coef: 0.001
+    kl_loss_type: low_var_kl
+
+    optim:
+      lr: 1e-6
+      lr_scheduler_type: constant
+      lr_warmup_steps_ratio: 0.0
+      min_lr_ratio: 0.0
+
+    fsdp_config:
+      param_offload: false
+      optimizer_offload: false
+
+  ref:
+    fsdp_config:
+      param_offload: false
+    log_prob_micro_batch_size_per_gpu: 2
+    log_prob_use_dynamic_bsz: true
+    log_prob_max_token_len_per_gpu: 4096
+
+  rollout:
+    # AgentLoop dùng async; vLLM là lựa chọn hợp lý ở đây
+    name: vllm
+    mode: async
+    dtype: bfloat16
+
+    tensor_model_parallel_size: 1
+    gpu_memory_utilization: 0.40
+    max_num_seqs: 32
+    max_num_batched_tokens: 4096
+
+    response_length: ${data.max_response_length}
+
+    top_k: -1
+    top_p: 1.0
+    temperature: 1.0
+    do_sample: true
+
+    # GRPO cần group sampling > 1
+    n: 4
+
+    calculate_log_probs: false
+    log_prob_micro_batch_size_per_gpu: 2
+    log_prob_use_dynamic_bsz: true
+    log_prob_max_token_len_per_gpu: 4096
+
+    val_kwargs:
+      top_k: -1
+      top_p: 1.0
+      temperature: 0.0
+      do_sample: false
+      n: 1
+
+    multi_turn:
+      enable: true
+      max_assistant_turns: 10
+
+    agent:
+      num_workers: 4
+      default_agent_loop: webshop_agent
+      agent_loop_config_path: /workspace/agent_loops.yaml
+      custom_async_server:
+        path: null
+        name: null
+
+reward_model:
+  enable: false
+
+algorithm:
+  adv_estimator: grpo
+  gamma: 1.0
+  lam: 1.0
+  use_kl_in_reward: false
+
+trainer:
+  project_name: verl_webshop
+  experiment_name: qwen25_0p5b_webshop_grpo_2x16g
+
+  logger: ["console", "wandb"]
+
+  nnodes: 1
+  n_gpus_per_node: 2
+
+  save_freq: 20
+  test_freq: 5
+  val_before_train: true
+  total_epochs: 3
+  critic_warmup: 0
+  resume_mode: auto
+
+  # Xem rollout / generations
+  log_val_generations: 5
+  rollout_data_dir: /workspace/rollout_logs/train
+  validation_data_dir: /workspace/rollout_logs/val

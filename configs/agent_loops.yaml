@@ -1,0 +1,8 @@
+- name: webshop_agent
+  _target_: src.rl.webshop_agent_loop.WebShopAgentLoop
+  max_turns: 15
+  max_history: 6
+  prompt_prefix: "You are a shopping agent."
+  webshop_base_url: "http://127.0.0.1:8001"
+  webshop_timeout: 60.0
+  env_split: "train"
